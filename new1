@@ -1,0 +1,28 @@
+local radio = peripheral.wrap("back")
+print(radio)
+
+radio.sendLinkSignal("minecraft:blackstone", "minecraft:netherrack", 15)
+radio.sendLinkSignal("minecraft:blackstone", "minecraft:magma_block", 15)
+radio.sendLinkSignal("minecraft:stone", "minecraft:netherrack", 15)
+radio.sendLinkSignal("minecraft:stone", "minecraft:magma_block", 0)
+
+while true do
+    local forward = getLinkSignal("minecraft:red_wool")
+    local backward = getLinkSignal("minecraft:blue_wool")
+    local left = getLinkSignal("minecraft:yellow_wool")
+    local right = getLinkSignal("minecraft:lime_wool")
+
+    if forward ~= 0 or backward ~= 0 then
+        radio.sendLinkSignal("minecraft:blackstone", "minecraft:netherrack", 0)
+        radio.sendLinkSignal("minecraft:blackstone", "minecraft:magma_block", 0)
+        if backward then
+            radio.sendLinkSignal("minecraft:stone", "minecraft:netherrack", 0)
+            radio.sendLinkSignal("minecraft:stone", "minecraft:magma_block", 15)
+        end
+    else
+        radio.sendLinkSignal("minecraft:blackstone", "minecraft:netherrack", 15)
+        radio.sendLinkSignal("minecraft:blackstone", "minecraft:magma_block", 15)
+        radio.sendLinkSignal("minecraft:stone", "minecraft:netherrack", 15)
+        radio.sendLinkSignal("minecraft:stone", "minecraft:magma_block", 0)
+    end
+end
