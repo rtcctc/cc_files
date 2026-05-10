@@ -7,10 +7,10 @@ radio.sendLinkSignal("minecraft:stone", "minecraft:netherrack", 15)
 radio.sendLinkSignal("minecraft:stone", "minecraft:magma_block", 0)
 
 while true do
-    local forward = getLinkSignal("minecraft:red_wool")
-    local backward = getLinkSignal("minecraft:blue_wool")
-    local left = getLinkSignal("minecraft:yellow_wool")
-    local right = getLinkSignal("minecraft:lime_wool")
+    local forward = radio.getLinkSignal("minecraft:red_wool", "minecraft:red_wool")
+    local backward = radio.getLinkSignal("minecraft:blue_wool", "minecraft:blue_wool")
+    local left = radio.getLinkSignal("minecraft:yellow_wool", "minecraft:yellow_wool")
+    local right = radio.getLinkSignal("minecraft:lime_wool", "minecraft:lime_wool")
 
     if forward ~= 0 or backward ~= 0 then
         radio.sendLinkSignal("minecraft:blackstone", "minecraft:netherrack", 0)
