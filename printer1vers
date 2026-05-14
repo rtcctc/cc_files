@@ -13,17 +13,18 @@ end
 function calibrate()
     stop()
 
-    rad.sendLinkSignal("blue_wool", "black_wool", 15)
-    sleep(10)
-    rad.sendLinkSignal("blue_wool", "black_wool", 0)
-
     rad.sendLinkSignal("red_wool", "black_wool", 15)
     sleep(10)
-    rad.sendLinkSignal("red_wool", "white_wool", 0)
+    rad.sendLinkSignal("red_wool", "black_wool", 0)
 
     rad.sendLinkSignal("lime_wool", "black_wool", 15)
     sleep(10)
     rad.sendLinkSignal("lime_wool", "black_wool", 0)
+
+    rad.sendLinkSignal("blue_wool", "black_wool", 15)
+    sleep(10)
+    rad.sendLinkSignal("blue_wool", "black_wool", 0)
+
 end
 
 local X = 0
@@ -31,7 +32,7 @@ local Y = 0
 local Z = 0
 
 function goZ(newZ)
-    local delta = Z - newZ
+    local delta = newZ - Z
     if delta >= 0 then
         rad.sendLinkSignal("blue_wool", "white_wool", 15)
         sleep(delta)
@@ -41,10 +42,11 @@ function goZ(newZ)
         sleep(delta)
         rad.sendLinkSignal("blue_wool", "black_wool", 0)
     end
+    Z = newZ
 end
 
 function goX(newX)
-    local delta = X - newX
+    local delta = newX - X
     if delta >= 0 then
         rad.sendLinkSignal("red_wool", "white_wool", 15)
         sleep(delta)
@@ -54,10 +56,11 @@ function goX(newX)
         sleep(delta)
         rad.sendLinkSignal("red_wool", "black_wool", 0)
     end
+    X = newX
 end
 
 function goY(newY)
-    local delta = Y - newY
+    local delta = newY - Y
     if delta >= 0 then
         rad.sendLinkSignal("lime_wool", "white_wool", 15)
         sleep(delta)
@@ -67,6 +70,7 @@ function goY(newY)
         sleep(delta)
         rad.sendLinkSignal("lime_wool", "black_wool", 0)
     end
+    Y = newY
 end
 
 function place()
