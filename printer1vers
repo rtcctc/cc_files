@@ -1,0 +1,85 @@
+local rad = peripheral.wrap("back")
+
+function stop()
+    rad.sendLinkSignal("blue_wool", "black_wool", 0)
+    rad.sendLinkSignal("blue_wool", "white_wool", 0)
+    rad.sendLinkSignal("red_wool", "black_wool", 0)
+    rad.sendLinkSignal("red_wool", "white_wool", 0)
+    rad.sendLinkSignal("lime_wool", "black_wool", 0)
+    rad.sendLinkSignal("lime_wool", "white_wool", 0)
+    rad.sendLinkSignal("yellow_wool", "yellow_wool", 15)
+end
+
+function calibrate()
+    stop()
+
+    rad.sendLinkSignal("blue_wool", "black_wool", 15)
+    sleep(10)
+    rad.sendLinkSignal("blue_wool", "black_wool", 0)
+
+    rad.sendLinkSignal("red_wool", "black_wool", 15)
+    sleep(10)
+    rad.sendLinkSignal("red_wool", "white_wool", 0)
+
+    rad.sendLinkSignal("lime_wool", "black_wool", 15)
+    sleep(10)
+    rad.sendLinkSignal("lime_wool", "black_wool", 0)
+end
+
+local X = 0
+local Y = 0
+local Z = 0
+
+function goZ(newZ)
+    local delta = Z - newZ
+    if delta >= 0 then
+        rad.sendLinkSignal("blue_wool", "white_wool", 15)
+        sleep(delta)
+        rad.sendLinkSignal("blue_wool", "white_wool", 0)
+    else
+        rad.sendLinkSignal("blue_wool", "black_wool", 15)
+        sleep(delta)
+        rad.sendLinkSignal("blue_wool", "black_wool", 0)
+    end
+end
+
+function goX(newX)
+    local delta = X - newX
+    if delta >= 0 then
+        rad.sendLinkSignal("red_wool", "white_wool", 15)
+        sleep(delta)
+        rad.sendLinkSignal("red_wool", "white_wool", 0)
+    else
+        rad.sendLinkSignal("red_wool", "black_wool", 15)
+        sleep(delta)
+        rad.sendLinkSignal("red_wool", "black_wool", 0)
+    end
+end
+
+function goY(newY)
+    local delta = Y - newY
+    if delta >= 0 then
+        rad.sendLinkSignal("lime_wool", "white_wool", 15)
+        sleep(delta)
+        rad.sendLinkSignal("lime_wool", "white_wool", 0)
+    else
+        rad.sendLinkSignal("lime_wool", "black_wool", 15)
+        sleep(delta)
+        rad.sendLinkSignal("lime_wool", "black_wool", 0)
+    end
+end
+
+function place()
+    rad.sendLinkSignal("yellow_wool", "yellow_wool", 0)
+    sleep(1)
+    rad.sendLinkSignal("yellow_wool", "yellow_wool", 15)
+end
+
+local targetX = read()
+local targetY = read()
+local targetZ = read()
+
+goZ(targetZ)
+goX(targetX)
+goY(targetY)
+place()
