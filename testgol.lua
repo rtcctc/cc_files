@@ -1,24 +1,21 @@
--- Система управления голосованием на мониторе 6x3.
--- Автоматически подключается к монитору.
--- Для выхода из программы в любой момент нажмите Ctrl+T.
--- Для досрочного завершения активного голосования нажмите Ctrl+V.
+-- Sistema golosovaniya na monitor 6x3
+-- Klavishi: Z - Za, X - Protiv, C - Vozderzhalcya
+-- Ctrl+T - vyhod iz programmy
+-- Ctrl+V - dosrochnoe okonchanie golosovaniya
 
--- Функция для подключения к монитору.
 local function connectToMonitor()
     local monitor = peripheral.find("monitor") or peripheral.find("advanced_monitor")
     if not monitor then
-        error("Монитор не найден. Пожалуйста, установите монитор рядом с компьютером.")
+        error("Monitor ne najden")
     end
     return monitor
 end
 
--- Функция для очистки монитора и установки курсора в начало.
 local function clearMonitor(monitor)
     monitor.clear()
     monitor.setCursorPos(1, 1)
 end
 
--- Функция для рисования цветной линии на мониторе.
 local function drawColoredLine(monitor, startX, y, length, color)
     for i = 1, length do
         monitor.setCursorPos(startX + i - 1, y)
@@ -28,40 +25,34 @@ local function drawColoredLine(monitor, startX, y, length, color)
     monitor.setBackgroundColor(colors.black)
 end
 
--- Функция для отображения интерфейса.
-local function updateDisplay(monitor, topic, question, participants, votes, totalVotes, waiting)
+local function updateDisplay(monitor, meetingTopic, question, participants, votes, totalVotes, waiting)
     clearMonitor(monitor)
     local width, height = monitor.getSize()
     
-    -- Вычисляем среднюю точку для заголовка.
-    local totalTopic = topic .. ": " .. question
+    local totalTopic = meetingTopic .. ": " .. question
     local titleX = math.max(1, math.floor((width - #totalTopic) / 2))
     monitor.setCursorPos(titleX, 1)
     monitor.setTextColor(colors.white)
     monitor.write(totalTopic)
     
-    -- Отображение участников в левой части.
+    -- Levaya chast: uchastniki
     local leftX = 2
     local yStart = 3
     monitor.setCursorPos(leftX, yStart)
     monitor.setTextColor(colors.lightGray)
-    monitor.write("Участники: " .. participants.count)
+    monitor.write("Uchastniki: " .. participants.count)
     for i = 1, participants.count do
         monitor.setCursorPos(leftX, yStart + i)
         monitor.write("  - " .. participants.list[i])
     end
     
-    -- Отображение темы и текущих результатов в правой части.
+    -- Pravaya chast: rezultaty
     local halfWidth = math.floor(width / 2)
     local rightX = halfWidth + 2
-    local rightWidth = width - halfWidth - 2
-    if rightWidth < 10 then rightWidth = 10 end
-    
     monitor.setCursorPos(rightX, yStart - 1)
-    monitor.write("Голосование: " .. question)
+    monitor.write("Golosovanie: " .. question)
     
-    -- Рисуем цветную линию.
-    local lineLength = math.min(rightWidth - 2, 20)
+    local lineLength = 20
     local startDrawX = rightX + 2
     drawColoredLine(monitor, startDrawX, yStart + 2, lineLength, colors.green)
     drawColoredLine(monitor, startDrawX, yStart + 3, lineLength, colors.red)
@@ -71,67 +62,52 @@ local function updateDisplay(monitor, topic, question, participants, votes, tota
         drawColoredLine(monitor, startDrawX, yStart + 5, lineLength, colors.gray)
     end
     
-    -- Отображаем результаты.
     monitor.setCursorPos(rightX + 2, yStart + 2)
-    monitor.write("За: " .. votes.for .. "   ")
+    monitor.write("Za: " .. votes.for .. "   ")
     monitor.setCursorPos(rightX + 2, yStart + 3)
-    monitor.write("Против: " .. votes.against)
+    monitor.write("Protiv: " .. votes.against)
     monitor.setCursorPos(rightX + 2, yStart + 4)
-    monitor.write("Воздержался: " .. votes.abstained)
+    monitor.write("Vozderzhalcya: " .. votes.abstained)
     
     if waiting then
         monitor.setCursorPos(rightX + 2, yStart + 5)
-        monitor.write("Ожидание: " .. waiting)
+        monitor.write("Ozhidaetsya: " .. waiting)
     end
     
-    -- Статистика.
     if totalVotes > 0 then
         monitor.setCursorPos(rightX, height - 3)
-        monitor.write("Проголосовало: " .. totalVotes .. "/" .. participants.count)
+        monitor.write("Progolosovalo: " .. totalVotes .. "/" .. participants.count)
     end
     
     monitor.setCursorPos(1, height)
     monitor.setTextColor(colors.gray)
-    monitor.write("[Ctrl+T] для выхода | [Ctrl+V] для досрочного завершения")
+    monitor.write("[Ctrl+T] Exit  |  [Ctrl+V] Stop voting")
 end
 
--- Функция для получения голоса от участника.
-local function getVote(monitor, participants, currentVotes, voted, totalVotes)
+local function getVote()
     local keys = {
         [string.byte('z')] = "for",
         [string.byte('x')] = "against",
         [string.byte('c')] = "abstained"
     }
-    
     while true do
         local event, key = os.pullEvent("key")
-        local voteType = keys[key]
-        if voteType then
-            return voteType
+        if keys[key] then
+            return keys[key]
         end
     end
 end
 
--- Запуск программы.
 local function main()
-    print("Подключение к монитору...")
+    print("Podklyuchenie k monitoru...")
     local monitor = connectToMonitor()
+    pcall(function() monitor.setTextScale(2) end)
     
-    -- Настройка масштаба для монитора 6x3.
-    -- Для Advanced Monitor: monitor.setTextScale(2)
-    -- Для обычного: monitor.setTextScale(2)
-    -- (Пропускаем, если не поддерживается)
-    local ok, err = pcall(function() monitor.setTextScale(2) end)
-    if not ok then
-        print("Настройка масштаба монитора не поддерживается.")
-    end
-    
-    print("Введите тему собрания:")
+    print("Vvedite temu sobraniya:")
     local meetingTopic = read()
-    print("Введите номер собрания:")
+    print("Vvedite nomer sobraniya:")
     local meetingNumber = read()
     
-    -- Отображаем тему и номер на весь экран.
     clearMonitor(monitor)
     local width = monitor.getSize()
     local totalTopic = meetingTopic .. " " .. meetingNumber
@@ -141,7 +117,7 @@ local function main()
     monitor.write(totalTopic)
     sleep(3)
     
-    print("Введите имена участников. Для завершения введите '0':")
+    print("Vvedite imena uchastnikov. Dlya okonchaniya vvedite 0:")
     local participantsList = {}
     while true do
         local name = read()
@@ -153,40 +129,33 @@ local function main()
     
     local participants = { count = #participantsList, list = participantsList }
     if participants.count == 0 then
-        error("Список участников не может быть пустым.")
+        error("Spisok uchastnikov pust")
     end
     
-    print("Список участников (" .. participants.count .. "):")
+    print("Spisok uchastnikov (" .. participants.count .. "):")
     for i, name in ipairs(participants.list) do
         print(i .. ". " .. name)
     end
-    print("Нажмите Enter для продолжения...")
+    print("Nazhmite Enter dlya prodolzheniya...")
     read()
     
     local voted = {}
     for i = 1, participants.count do voted[i] = false end
     
     while true do
-        print("Введите тему для голосования:")
+        print("Vvedite temu golosovaniya:")
         local question = read()
-        if question == "" then
-            print("Тема голосования не может быть пустой.")
-            return
-        end
+        if question == "" then break end
         
-        -- Сброс результатов голосования.
         local votes = { for = 0, against = 0, abstained = 0 }
         local totalVotes = 0
         for i = 1, participants.count do voted[i] = false end
         
-        -- Функция для обработки голосования.
-        local function runVoting()
-            while totalVotes < participants.count do
+        local votingActive = true
+        local coVote = coroutine.create(function()
+            while totalVotes < participants.count and votingActive do
                 updateDisplay(monitor, meetingTopic, question, participants, votes, totalVotes, participants.count - totalVotes)
-                
-                local vote = getVote(monitor, participants, votes, voted, totalVotes)
-                
-                -- Обработка голоса.
+                local vote = getVote()
                 if vote == "for" then
                     votes.for = votes.for + 1
                 elseif vote == "against" then
@@ -196,88 +165,58 @@ local function main()
                 end
                 totalVotes = totalVotes + 1
             end
-        end
+        end)
         
-        -- Функция для проверки досрочного завершения.
-        local function checkEarlyStop()
+        local coStop = coroutine.create(function()
             while true do
-                os.pullEvent("key")
-                -- Здесь мы ждем комбинацию клавиш. В Lua сложно отследить Ctrl+V напрямую,
-                -- поэтому мы проверим, не пришел ли символ 'v' с нажатым Ctrl.
-                -- Однако, более простой способ — использовать отдельный обработчик прерываний.
-                -- Для простоты мы будем проверять глобальный флаг terminate.
-                if os.pullEvent() == "terminate" then
-                    return true
-                end
-            end
-        end
-        
-        -- Запускаем голосование и обработчик прерываний параллельно.
-        local running = true
-        local co1 = coroutine.create(function() runVoting() end)
-        local co2 = coroutine.create(function() 
-            while running do
-                local event, p1, p2, p3 = os.pullEvent()
-                if event == "key" and p1 == 47 then -- Код клавиши V (47)
-                    print("Голосование досрочно завершено.")
-                    running = false
+                local event, p1 = os.pullEvent()
+                if event == "key" and p1 == 47 then -- V
+                    votingActive = false
                     break
                 elseif event == "terminate" then
-                    print("Программа прервана.")
+                    print("Programma ostanovlena")
                     os.exit()
                 end
             end
         end)
         
-        local status
-        while true do
-            if coroutine.status(co1) == "dead" then
-                status = "finished"
-                break
-            elseif coroutine.status(co2) == "dead" then
-                status = "stopped"
-                break
-            end
-            coroutine.resume(co1)
-            coroutine.resume(co2)
-            os.sleep(0.1)
+        while coroutine.status(coVote) ~= "dead" and votingActive do
+            coroutine.resume(coVote)
+            coroutine.resume(coStop)
+            os.sleep(0.05)
         end
         
         updateDisplay(monitor, meetingTopic, question, participants, votes, totalVotes, 0)
         
-        if status == "finished" then
-            -- Определяем победителя.
+        if totalVotes == participants.count then
             if votes.for > votes.against then
                 monitor.setCursorPos(1, 10)
-                monitor.write("РЕЗУЛЬТАТ: ПРИНЯТО!")
+                monitor.write("REZULTAT: PRINYATO!")
             elseif votes.against > votes.for then
                 monitor.setCursorPos(1, 10)
-                monitor.write("РЕЗУЛЬТАТ: ОТКЛОНЕНО!")
+                monitor.write("REZULTAT: OTKLONENO!")
             else
                 monitor.setCursorPos(1, 10)
-                monitor.write("РЕЗУЛЬТАТ: РАВЕНСТВО!")
+                monitor.write("REZULTAT: RAVENSTVO!")
             end
-            sleep(5)
         else
             monitor.setCursorPos(1, 10)
-            monitor.write("ГОЛОСОВАНИЕ ПРЕРВАНО!")
-            sleep(5)
+            monitor.write("GOLOSOVANIE PRERVANO!")
         end
+        sleep(5)
         
-        print("Продолжить голосование? (y/n):")
+        print("Prodolzhit? (y/n):")
         local cont = read()
         if cont ~= "y" then
             break
         end
     end
-    
-    print("Программа завершена.")
+    print("Programma zavershena")
 end
 
--- Запуск основной программы.
 local ok, err = pcall(main)
 if not ok then
-    print("Ошибка: " .. tostring(err))
-    print("Нажмите любую клавишу для выхода...")
+    print("Oshibka: " .. tostring(err))
+    print("Nazhmite lyubuyu klavishu")
     os.pullEvent("key")
 end
