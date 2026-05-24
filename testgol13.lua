@@ -1,5 +1,6 @@
 -- =========================================
--- ADVANCED PARLIAMENT SYSTEM (FIXED)
+--   PARLIAMENT SYSTEM (FINAL STABLE)
+--   CC:TWEAKED / ASCII ONLY
 -- =========================================
 
 local CONFIG_FILE = "vote_config"
@@ -51,13 +52,13 @@ end
 if not loadConfig() then setupConfig() end
 
 -- =========================================
--- MEETING
+-- MEETING INFO
 -- =========================================
 
 term.clear()
 term.setCursorPos(1,1)
 
-write("Meeting topic: ")
+write("Meeting title: ")
 local meetingTitle = read()
 
 write("Meeting number: ")
@@ -79,7 +80,7 @@ end
 local participantCount = #participants
 
 -- =========================================
--- UI
+-- UI SETUP
 -- =========================================
 
 local mw, mh = monitor.getSize()
@@ -104,7 +105,7 @@ local function writeAt(x,y,text,color,bg)
     monitor.setBackgroundColor(colors.black)
 end
 
-local function centerText(y,text,color)
+local function center(y,text,color)
     local x = math.floor((mw - #text) / 2)
     writeAt(x,y,text,color)
 end
@@ -125,12 +126,10 @@ local function drawFrame()
         writeAt(x,4,"-",colors.gray)
     end
 
-    centerText(1,"MEETING #" .. meetingNumber,colors.cyan)
-    centerText(2,meetingTitle,colors.white)
+    center(1,"MEETING #" .. meetingNumber,colors.cyan)
+    center(2,meetingTitle,colors.white)
 
     writeAt(2,5,"PARTICIPANTS",colors.lime)
-    writeAt(splitX+2,5,"ACTIVE VOTE",colors.orange)
-    writeAt(splitX+2,7,"TOPIC WINDOW",colors.white)
     writeAt(splitX+2,14,"HISTORY",colors.orange)
 end
 
@@ -140,9 +139,9 @@ end
 
 local function drawParticipants()
 
-    local y = 7
     writeAt(2,6,"COUNT: "..participantCount,colors.green)
 
+    local y = 7
     for i,name in ipairs(participants) do
         writeAt(2,y,i..". "..name,colors.white)
         y = y + 1
@@ -150,7 +149,7 @@ local function drawParticipants()
 end
 
 -- =========================================
--- HISTORY (WITH STATUS FIX)
+-- HISTORY
 -- =========================================
 
 local function drawHistory()
@@ -171,62 +170,68 @@ local function drawHistory()
             " N:"..v.no..
             " A:"..v.abstain
 
-        local color = colors.gray
+        local col = colors.lightGray
 
-        if v.status == "ACCEPTED" then color = colors.green end
-        if v.status == "REJECTED" then color = colors.red end
-        if v.status == "CANCELLED" then color = colors.lightGray end
+        if v.status == "ACCEPTED" then col = colors.green end
+        if v.status == "REJECTED" then col = colors.red end
+        if v.status == "CANCELLED" then col = colors.gray end
 
-        writeAt(startX,startY+i-1,text,color)
+        writeAt(startX,startY+i-1,text,col)
     end
 end
 
 -- =========================================
--- VOTE WINDOW (IMPORTANT FIX)
+-- VOTE WINDOW
 -- =========================================
 
-local function drawVoteWindow(topic,yes,no,abstain)
+local function drawVote(topic,yes,no,abstain)
 
     local x0 = splitX + 2
     local width = mw - x0 - 2
 
     local total = participantCount
+    local done = yes + no + abstain
+    local wait = total - done
 
     local g = math.floor((yes/total)*width)
     local r = math.floor((no/total)*width)
     local a = math.floor((abstain/total)*width)
     local w = width - (g+r+a)
 
-    local yBar = 9
+    local barY = 9
 
-    -- IMPORTANT: DO NOT FULL CLEAR, ONLY VOTE AREA
+    -- clear only vote area
     for y=6,12 do
         writeAt(x0,y,string.rep(" ",width))
     end
 
-    writeAt(x0,6,"ACTIVE VOTE",colors.orange)
-    writeAt(x0,7,"TOPIC: "..topic,colors.white)
+    writeAt(x0,6,"TOPIC: "..topic,colors.white)
 
     local x = x0
 
-    for i=1,g do writeAt(x,yBar," ",nil,colors.green) x=x+1 end
-    for i=1,r do writeAt(x,yBar," ",nil,colors.red) x=x+1 end
-    for i=1,a do writeAt(x,yBar," ",nil,colors.yellow) x=x+1 end
-    for i=1,w do writeAt(x,yBar," ",nil,colors.gray) x=x+1 end
+    for i=1,g do writeAt(x,barY," ",nil,colors.green) x=x+1 end
+    for i=1,r do writeAt(x,barY," ",nil,colors.red) x=x+1 end
+    for i=1,a do writeAt(x,barY," ",nil,colors.yellow) x=x+1 end
+    for i=1,w do writeAt(x,barY," ",nil,colors.gray) x=x+1 end
 
-    writeAt(x0,11,"Y:"..yes.." N:"..no.." A:"..abstain,colors.white)
+    writeAt(x0,11,
+        "Y:"..yes.." N:"..no.." A:"..abstain.." W:"..wait,
+        colors.white)
 end
 
 -- =========================================
--- INIT
+-- INIT DRAW
 -- =========================================
 
 drawFrame()
 drawParticipants()
 drawHistory()
 
+-- SHOW EMPTY VOTE STATE (IMPORTANT FIX)
+drawVote("WAITING FOR VOTE...",0,0,0)
+
 -- =========================================
--- VOTE
+-- VOTE SYSTEM
 -- =========================================
 
 local voteRunning = false
@@ -238,8 +243,9 @@ local function runVote()
 
     term.clear()
     term.setCursorPos(1,1)
+
     print("NEW VOTE")
-    print("Topic:")
+    print("Enter topic:")
     local topic = read()
 
     local yes,no,abstain = 0,0,0
@@ -247,6 +253,8 @@ local function runVote()
 
     drawFrame()
     drawParticipants()
+    drawVote(topic,0,0,0)
+    drawHistory()
 
     while votes < participantCount and voteRunning do
 
@@ -271,16 +279,18 @@ local function runVote()
 
         drawFrame()
         drawParticipants()
-        drawVoteWindow(topic,yes,no,abstain)
+        drawVote(topic,yes,no,abstain)
         drawHistory()
     end
 
-    local status = "REJECTED"
+    local status
 
-    if voteRunning == false and votes < participantCount then
+    if not voteRunning and votes < participantCount then
         status = "CANCELLED"
     elseif yes > no then
         status = "ACCEPTED"
+    else
+        status = "REJECTED"
     end
 
     table.insert(voteHistory,{
@@ -293,21 +303,22 @@ local function runVote()
 
     drawHistory()
 
-    local col = colors.red
-    if status == "ACCEPTED" then col = colors.green end
-    if status == "CANCELLED" then col = colors.lightGray end
-
-    writeAt(splitX+2,13,"RESULT: "..status,col)
+    writeAt(splitX+2,13,
+        "RESULT: "..status,
+        status=="ACCEPTED" and colors.green
+        or status=="REJECTED" and colors.red
+        or colors.gray
+    )
 
     voteRunning = false
 end
 
 -- =========================================
--- MAIN
+-- MAIN LOOP
 -- =========================================
 
 term.clear()
-print("vote / exit")
+print("Commands: vote / exit")
 
 while true do
     write("> ")
