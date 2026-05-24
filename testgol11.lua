@@ -1,12 +1,15 @@
 -- =========================================
---   PARLIAMENT SYSTEM FIXED VERSION
---   CC:TWEAKED (ASCII ONLY)
+--        ADVANCED PARLIAMENT SYSTEM
+--              CC:Tweaked
 -- =========================================
 
 local CONFIG_FILE = "vote_config"
 
 local monitor = peripheral.find("monitor")
-if not monitor then error("Monitor not found") end
+
+if not monitor then
+    error("Monitor not found")
+end
 
 monitor.setTextScale(0.5)
 
@@ -33,33 +36,44 @@ local function loadConfig()
 end
 
 local function setupConfig()
+
     term.clear()
     term.setCursorPos(1,1)
 
-    print("FIRST SETUP")
+    print("=== FIRST SETUP ===")
     print()
 
-    write("YES side: ") config.yes = read()
-    write("NO side: ") config.no = read()
-    write("ABSTAIN side: ") config.abstain = read()
-    write("STOP (button): ") config.stop = read()
+    write("YES button side: ")
+    config.yes = read()
+
+    write("NO button side: ")
+    config.no = read()
+
+    write("ABSTAIN button side: ")
+    config.abstain = read()
+
+    write("STOP button side: ")
+    config.stop = read()
 
     saveConfig()
 
-    print("Saved")
-    sleep(1)
+    print()
+    print("Config saved")
+    sleep(2)
 end
 
-if not loadConfig() then setupConfig() end
+if not loadConfig() then
+    setupConfig()
+end
 
 -- =========================================
--- SETUP MEETING
+-- MEETING DATA
 -- =========================================
 
 term.clear()
 term.setCursorPos(1,1)
 
-write("Meeting title: ")
+write("Meeting topic: ")
 local meetingTitle = read()
 
 write("Meeting number: ")
@@ -72,74 +86,88 @@ local meetingNumber = read()
 local participants = {}
 
 print()
-print("Participants (0 = finish)")
+print("Enter participants")
+print("0 = finish")
 print()
 
 while true do
+
     local name = read()
-    if name == "0" then break end
+
+    if name == "0" then
+        break
+    end
+
     table.insert(participants, name)
 end
 
 local participantCount = #participants
 
 -- =========================================
--- LAYOUT
+-- UI SETTINGS
 -- =========================================
 
 local mw, mh = monitor.getSize()
 
-local splitX = math.floor(mw * 0.35) -- fixed better balance
-local historyY = math.floor(mh * 0.55)
+local splitX = 22
 
-local history = {}
+local voteHistory = {}
 
 -- =========================================
 -- DRAW HELPERS
 -- =========================================
 
 local function clear()
+
     monitor.setBackgroundColor(colors.black)
+    monitor.setTextColor(colors.white)
     monitor.clear()
 end
 
-local function put(x,y,text,color,bg)
-    if color then monitor.setTextColor(color) end
-    if bg then monitor.setBackgroundColor(bg) end
+local function writeAt(x,y,text,color,bg)
+
+    if color then
+        monitor.setTextColor(color)
+    end
+
+    if bg then
+        monitor.setBackgroundColor(bg)
+    end
+
     monitor.setCursorPos(x,y)
     monitor.write(text)
+
     monitor.setBackgroundColor(colors.black)
 end
 
-local function center(y,text,color)
+local function centerText(y,text,color)
+
     local x = math.floor((mw - #text) / 2)
-    put(x,y,text,color)
+
+    writeAt(x,y,text,color)
 end
 
 -- =========================================
--- FRAME
+-- STATIC UI
 -- =========================================
 
 local function drawFrame()
 
     clear()
 
-    -- vertical split
     for y=1,mh do
-        put(splitX,y,"|",colors.gray)
+        writeAt(splitX,y,"|",colors.gray)
     end
 
-    -- horizontal split (history)
     for x=1,mw do
-        put(x,historyY,"-",colors.gray)
+        writeAt(x,4,"-",colors.gray)
     end
 
-    center(1,"MEETING #" .. meetingNumber,colors.cyan)
-    center(2,meetingTitle,colors.white)
+    centerText(1,"MEETING #" .. meetingNumber,colors.cyan)
+    centerText(2,meetingTitle,colors.white)
 
-    put(2,4,"PARTICIPANTS",colors.lime)
-    put(splitX+2,4,"ACTIVE VOTE",colors.orange)
-    put(splitX+2,historyY+1,"HISTORY",colors.orange)
+    writeAt(2,5,"PARTICIPANTS",colors.lime)
+    writeAt(splitX + 2,5,"VOTE HISTORY",colors.orange)
 end
 
 -- =========================================
@@ -148,11 +176,12 @@ end
 
 local function drawParticipants()
 
-    put(2,5,"COUNT: "..participantCount,colors.green)
-
     local y = 7
+
+    writeAt(2,6,"Count: " .. participantCount,colors.green)
+
     for i,name in ipairs(participants) do
-        put(2,y,i..". "..name,colors.white)
+        writeAt(2,y,i .. ". " .. name,colors.white)
         y = y + 1
     end
 end
@@ -163,68 +192,77 @@ end
 
 local function drawHistory()
 
-    local startY = historyY + 2
-    local max = mh - startY + 1
+    local startX = splitX + 2
+    local startY = 7
 
-    while #history > max do
-        table.remove(history,1)
+    local maxEntries = mh - startY - 1
+
+    while #voteHistory > maxEntries do
+        table.remove(voteHistory,1)
     end
 
-    for i,v in ipairs(history) do
+    for i=1,maxEntries do
+        writeAt(startX,startY + i - 1,
+            string.rep(" ",mw - startX))
+    end
 
-        local result = (v.yes > v.no) and "ACCEPT" or "REJECT"
-        local col = (result == "ACCEPT") and colors.green or colors.red
+    for i,entry in ipairs(voteHistory) do
 
         local text =
-            v.topic ..
-            " Y:"..v.yes..
-            " N:"..v.no..
-            " A:"..v.abstain
+            entry.topic ..
+            " [" ..
+            entry.yes .. "/" ..
+            entry.no .. "/" ..
+            entry.abstain .. "]"
 
-        put(splitX+2,startY+i-1,text,col)
+        local color = entry.accepted and colors.green or colors.red
+
+        writeAt(startX,startY + i - 1,text,color)
     end
 end
 
 -- =========================================
--- VOTE WINDOW
+-- VOTE WINDOW (TOP RIGHT FIXED POSITION)
 -- =========================================
 
-local function drawVote(topic,yes,no,abstain)
+local function drawVoteWindow(topic,yes,no,abstain)
 
-    local x0 = splitX + 2
-    local width = mw - x0 - 2
+    local startX = splitX + 2
+    local width = mw - startX - 2
 
     local total = participantCount
-    local done = yes + no + abstain
-    local wait = total - done
+    local voted = yes + no + abstain
+    local waiting = total - voted
 
-    local function part(v)
-        return math.floor((v/total)*width)
+    local greenW = math.floor((yes / total) * width)
+    local redW = math.floor((no / total) * width)
+    local yellowW = math.floor((abstain / total) * width)
+    local grayW = width - (greenW + redW + yellowW)
+
+    local yBar = 9  -- ВАЖНО: чуть выше истории
+
+    -- CLEAR ONLY VOTE AREA (НЕ ВСЁ)
+    for y=6,12 do
+        writeAt(startX,y,string.rep(" ",width))
     end
 
-    local g = part(yes)
-    local r = part(no)
-    local a = part(abstain)
-    local gray = width - (g+r+a)
+    writeAt(startX,6,"ACTIVE VOTE",colors.orange)
+    writeAt(startX,7,"TOPIC: "..topic,colors.white)
 
-    local yBar = 7
+    local x = startX
 
-    put(x0,5,"TOPIC: "..topic,colors.white)
+    for i=1,greenW do writeAt(x,yBar," ",nil,colors.green) x=x+1 end
+    for i=1,redW do writeAt(x,yBar," ",nil,colors.red) x=x+1 end
+    for i=1,yellowW do writeAt(x,yBar," ",nil,colors.yellow) x=x+1 end
+    for i=1,grayW do writeAt(x,yBar," ",nil,colors.gray) x=x+1 end
 
-    local x = x0
-
-    for i=1,g do put(x,yBar," ",nil,colors.green) x=x+1 end
-    for i=1,r do put(x,yBar," ",nil,colors.red) x=x+1 end
-    for i=1,a do put(x,yBar," ",nil,colors.yellow) x=x+1 end
-    for i=1,gray do put(x,yBar," ",nil,colors.gray) x=x+1 end
-
-    put(x0,yBar+2,
-        "Y:"..yes.." N:"..no.." A:"..abstain.." W:"..wait,
+    writeAt(startX,yBar+2,
+        "Y:"..yes.." N:"..no.." A:"..abstain.." W:"..waiting,
         colors.white)
 end
 
 -- =========================================
--- INIT DRAW
+-- INIT
 -- =========================================
 
 drawFrame()
@@ -242,16 +280,19 @@ local function runVote()
     if voteRunning then return end
     voteRunning = true
 
-    -- IMPORTANT: explicit topic ask HERE
-    term.setCursorPos(1,20)
-    term.clearLine()
-    write("VOTE TOPIC: ")
+    -- FIX: visible input prompt
+    term.clear()
+    term.setCursorPos(1,1)
+    print("=== NEW VOTE ===")
+    print("Enter topic:")
+
     local topic = read()
 
     local yes,no,abstain = 0,0,0
     local votes = 0
 
     drawFrame()
+    drawParticipants()
 
     while votes < participantCount and voteRunning do
 
@@ -276,23 +317,26 @@ local function runVote()
 
         drawFrame()
         drawParticipants()
-        drawVote(topic,yes,no,abstain)
+        drawVoteWindow(topic,yes,no,abstain)
         drawHistory()
     end
 
-    table.insert(history,{
+    local accepted = yes > no
+
+    table.insert(voteHistory,{
         topic = topic,
         yes = yes,
         no = no,
-        abstain = abstain
+        abstain = abstain,
+        accepted = accepted
     })
 
     drawHistory()
 
-    local result = (yes > no) and "ACCEPTED" or "REJECTED"
-    local col = (yes > no) and colors.green or colors.red
-
-    put(splitX+2,historyY-1,"RESULT: "..result,col)
+    writeAt(splitX+2,5,
+        "RESULT: "..(accepted and "ACCEPTED" or "REJECTED"),
+        accepted and colors.green or colors.red
+    )
 
     voteRunning = false
 end
@@ -308,9 +352,6 @@ while true do
     write("> ")
     local c = read()
 
-    if c == "vote" then
-        runVote()
-    elseif c == "exit" then
-        break
-    end
+    if c == "vote" then runVote()
+    elseif c == "exit" then break end
 end
