@@ -1,6 +1,6 @@
 -- Sistema golosovaniya na monitor 6x3
 -- Klavishi: Z - Za, X - Protiv, C - Vozderzhalcya
--- Ctrl+T - vyhod iz programmy
+-- Ctrl+T - vykhod iz programmy
 -- Ctrl+V - dosrochnoe okonchanie golosovaniya
 
 local function connectToMonitor()
@@ -63,9 +63,9 @@ local function updateDisplay(monitor, meetingTopic, question, participants, vote
     end
     
     monitor.setCursorPos(rightX + 2, yStart + 2)
-    monitor.write("Za: " .. votes.for .. "   ")
+    monitor.write("Za: " .. votes.yes .. "   ")
     monitor.setCursorPos(rightX + 2, yStart + 3)
-    monitor.write("Protiv: " .. votes.against)
+    monitor.write("Protiv: " .. votes.no)
     monitor.setCursorPos(rightX + 2, yStart + 4)
     monitor.write("Vozderzhalcya: " .. votes.abstained)
     
@@ -86,8 +86,8 @@ end
 
 local function getVote()
     local keys = {
-        [string.byte('z')] = "for",
-        [string.byte('x')] = "against",
+        [string.byte('z')] = "yes",
+        [string.byte('x')] = "no",
         [string.byte('c')] = "abstained"
     }
     while true do
@@ -147,7 +147,7 @@ local function main()
         local question = read()
         if question == "" then break end
         
-        local votes = { for = 0, against = 0, abstained = 0 }
+        local votes = { yes = 0, no = 0, abstained = 0 }
         local totalVotes = 0
         for i = 1, participants.count do voted[i] = false end
         
@@ -156,10 +156,10 @@ local function main()
             while totalVotes < participants.count and votingActive do
                 updateDisplay(monitor, meetingTopic, question, participants, votes, totalVotes, participants.count - totalVotes)
                 local vote = getVote()
-                if vote == "for" then
-                    votes.for = votes.for + 1
-                elseif vote == "against" then
-                    votes.against = votes.against + 1
+                if vote == "yes" then
+                    votes.yes = votes.yes + 1
+                elseif vote == "no" then
+                    votes.no = votes.no + 1
                 elseif vote == "abstained" then
                     votes.abstained = votes.abstained + 1
                 end
@@ -189,10 +189,10 @@ local function main()
         updateDisplay(monitor, meetingTopic, question, participants, votes, totalVotes, 0)
         
         if totalVotes == participants.count then
-            if votes.for > votes.against then
+            if votes.yes > votes.no then
                 monitor.setCursorPos(1, 10)
                 monitor.write("REZULTAT: PRINYATO!")
-            elseif votes.against > votes.for then
+            elseif votes.no > votes.yes then
                 monitor.setCursorPos(1, 10)
                 monitor.write("REZULTAT: OTKLONENO!")
             else
