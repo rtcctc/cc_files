@@ -1,6 +1,6 @@
 -- =========================================
---   PARLIAMENT SYSTEM (FINAL STABLE)
---   CC:TWEAKED / ASCII ONLY
+--   PARLIAMENT SYSTEM FINAL VERSION
+--   CC:TWEAKED (ASCII ONLY)
 -- =========================================
 
 local CONFIG_FILE = "vote_config"
@@ -105,7 +105,7 @@ local function writeAt(x,y,text,color,bg)
     monitor.setBackgroundColor(colors.black)
 end
 
-local function center(y,text,color)
+local function centerText(y,text,color)
     local x = math.floor((mw - #text) / 2)
     writeAt(x,y,text,color)
 end
@@ -118,19 +118,23 @@ local function drawFrame()
 
     clear()
 
+    -- separator
     for y=1,mh do
         writeAt(splitX,y,"|",colors.gray)
     end
 
+    -- top line
     for x=1,mw do
         writeAt(x,4,"-",colors.gray)
     end
 
-    center(1,"MEETING #" .. meetingNumber,colors.cyan)
-    center(2,meetingTitle,colors.white)
+    centerText(1,"MEETING #" .. meetingNumber,colors.cyan)
+    centerText(2,meetingTitle,colors.white)
 
     writeAt(2,5,"PARTICIPANTS",colors.lime)
+
     writeAt(splitX+2,14,"HISTORY",colors.orange)
+    writeAt(splitX+2,15,"----------------------",colors.gray)
 end
 
 -- =========================================
@@ -155,7 +159,7 @@ end
 local function drawHistory()
 
     local startX = splitX + 2
-    local startY = 15
+    local startY = 16   -- shifted down (important)
 
     local max = mh - startY + 1
 
@@ -170,11 +174,11 @@ local function drawHistory()
             " N:"..v.no..
             " A:"..v.abstain
 
-        local col = colors.lightGray
+        local col = colors.gray
 
         if v.status == "ACCEPTED" then col = colors.green end
         if v.status == "REJECTED" then col = colors.red end
-        if v.status == "CANCELLED" then col = colors.gray end
+        if v.status == "CANCELLED" then col = colors.lightGray end
 
         writeAt(startX,startY+i-1,text,col)
     end
@@ -200,7 +204,7 @@ local function drawVote(topic,yes,no,abstain)
 
     local barY = 9
 
-    -- clear only vote area
+    -- clear vote area only
     for y=6,12 do
         writeAt(x0,y,string.rep(" ",width))
     end
@@ -220,15 +224,12 @@ local function drawVote(topic,yes,no,abstain)
 end
 
 -- =========================================
--- INIT DRAW
+-- INIT DRAW (NO VOTE WINDOW HERE!)
 -- =========================================
 
 drawFrame()
 drawParticipants()
 drawHistory()
-
--- SHOW EMPTY VOTE STATE (IMPORTANT FIX)
-drawVote("WAITING FOR VOTE...",0,0,0)
 
 -- =========================================
 -- VOTE SYSTEM
@@ -241,6 +242,7 @@ local function runVote()
     if voteRunning then return end
     voteRunning = true
 
+    -- CLEAR AND ASK TOPIC (VISIBLE FIX)
     term.clear()
     term.setCursorPos(1,1)
 
@@ -251,9 +253,9 @@ local function runVote()
     local yes,no,abstain = 0,0,0
     local votes = 0
 
+    -- FIRST REAL RENDER ONLY NOW
     drawFrame()
     drawParticipants()
-    drawVote(topic,0,0,0)
     drawHistory()
 
     while votes < participantCount and voteRunning do
@@ -307,7 +309,7 @@ local function runVote()
         "RESULT: "..status,
         status=="ACCEPTED" and colors.green
         or status=="REJECTED" and colors.red
-        or colors.gray
+        or colors.lightGray
     )
 
     voteRunning = false
