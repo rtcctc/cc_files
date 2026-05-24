@@ -1,25 +1,69 @@
--- Sistema golosovaniya s redstone knopkami
--- Nastrojka storon vypolnitsya pri zapuske
+-- golosovanie s redstone knopkami + zapominanie storon
+-- vse storony, krome odnoy, zanyaty knopkami. Odna storona - monitor.
 
-local mon = peripheral.find("monitor") or peripheral.find("advanced_monitor")
-if not mon then error("Monitor ne najden") end
+local configFile = "sides.cfg"
+
+local function loadSides()
+    if fs.exists(configFile) then
+        local f = fs.open(configFile, "r")
+        local data = f.readAll()
+        f.close()
+        local sides = textutils.unserialise(data)
+        if sides then return sides end
+    end
+    return nil
+end
+
+local function saveSides(sides)
+    local f = fs.open(configFile, "w")
+    f.write(textutils.serialise(sides))
+    f.close()
+end
+
+local function getSides()
+    local sides = loadSides()
+    if sides then return sides end
+    
+    print("=== PERVIY ZAPUSK: NASTROYKA STORON ===")
+    print("Storony: front, back, left, right, top, bottom")
+    print("Vvedite storonu dlya MONITORA (naprimer front):")
+    local monSide = read()
+    print("Vvedite storonu dlya ZA:")
+    local zaSide = read()
+    print("Vvedite storonu dlya PROTIV:")
+    local protivSide = read()
+    print("Vvedite storonu dlya VOZDERZHALSYA:")
+    local vozderzhSide = read()
+    print("Vvedite storonu dlya DOSROCHNOGO OSTANOVA (STOP):")
+    local stopSide = read()
+    print("Vvedite storonu dlya VYHODA IZ PROGRAMMY (EXIT):")
+    local exitSide = read()
+    
+    sides = {
+        monitor = monSide,
+        za = zaSide,
+        protiv = protivSide,
+        vozderzh = vozderzhSide,
+        stop = stopSide,
+        exit = exitSide
+    }
+    saveSides(sides)
+    print("Nastroiki sohraneny v " .. configFile)
+    print("Nazhmite Enter dlya prodolzheniya")
+    read()
+    return sides
+end
+
+-- podklyuchenie monitora na zadannoy storone
+local sides = getSides()
+local mon = peripheral.wrap(sides.monitor)
+if not mon then
+    error("Monitor na storone " .. sides.monitor .. " ne najden")
+end
 mon.setTextScale(0.5)
 mon.clear()
 
--- zapros storon
-print("=== NASTROJKA REDSTONE KNOPOK ===")
-print("Vvedite storonu dlya ZA (naprimer: front, back, left, right, top, bottom):")
-local zaSide = read()
-print("Vvedite storonu dlya PROTIV:")
-local protivSide = read()
-print("Vvedite storonu dlya VOZDERZHALSYA:")
-local vozderzhSide = read()
-print("Vvedite storonu dlya DOSROCHNOGO OSTANOVA golosovaniya:")
-local stopVoteSide = read()
-print("Vvedite storonu dlya VYHODA IZ PROGRAMMY:")
-local exitSide = read()
-
--- funktsiya proverki nazhatiya knopki (perekhod signala 0->1)
+-- funktsiya oprosa knopki (front signala)
 local function wasPressed(side, lastState)
     local cur = rs.getInput(side)
     if cur and not lastState then
@@ -36,37 +80,26 @@ local lastVozderzh = false
 local lastStop = false
 local lastExit = false
 
--- vspomogatelnye funktsii dlya risovaniya poloski
+-- risovanie poloski (bez cifr)
 local function drawBar(yes, no, abst, total, waiting)
     local w = mon.getSize()
     local barWidth = w - 4
     if barWidth < 5 then barWidth = 5 end
     local y = 8
     
-    local segments = {}
-    if yes > 0 then
-        for i = 1, math.floor(yes / total * barWidth) do
-            table.insert(segments, colors.green)
+    local seg = {}
+    local function addSegment(color, count)
+        for i = 1, math.floor(count / total * barWidth) do
+            table.insert(seg, color)
         end
     end
-    if no > 0 then
-        for i = 1, math.floor(no / total * barWidth) do
-            table.insert(segments, colors.red)
-        end
-    end
-    if abst > 0 then
-        for i = 1, math.floor(abst / total * barWidth) do
-            table.insert(segments, colors.yellow)
-        end
-    end
-    if waiting > 0 then
-        for i = 1, math.floor(waiting / total * barWidth) do
-            table.insert(segments, colors.gray)
-        end
-    end
+    addSegment(colors.green, yes)
+    addSegment(colors.red, no)
+    addSegment(colors.yellow, abst)
+    addSegment(colors.gray, waiting)
     
     local x = 2
-    for _, col in ipairs(segments) do
+    for _, col in ipairs(seg) do
         mon.setCursorPos(x, y)
         mon.setBackgroundColor(col)
         mon.write(" ")
@@ -76,7 +109,7 @@ local function drawBar(yes, no, abst, total, waiting)
     mon.setBackgroundColor(colors.black)
 end
 
-local function showUI(topic, num, question, participants, votes, totalVoted, totalPeople)
+local function showUI(topic, num, question, participants, votes, votedCount, totalPeople)
     mon.clear()
     mon.setCursorPos(2,1)
     mon.setTextColor(colors.cyan)
@@ -87,9 +120,8 @@ local function showUI(topic, num, question, participants, votes, totalVoted, tot
     mon.write("Vopros: " .. question)
     
     mon.setCursorPos(2,4)
-    mon.write("Uchastnikov: " .. totalPeople .. "   Progolosovalo: " .. totalVoted)
+    mon.write("Uchastnikov: " .. totalPeople .. "   Progolosovalo: " .. votedCount)
     
-    -- spisok uchastnikov (levaya chast)
     local leftX = 2
     local startY = 6
     mon.setCursorPos(leftX, startY)
@@ -100,15 +132,13 @@ local function showUI(topic, num, question, participants, votes, totalVoted, tot
         mon.write(" " .. participants[i])
     end
     
-    -- poloska
-    local waiting = totalPeople - totalVoted
+    local waiting = totalPeople - votedCount
     drawBar(votes.za, votes.protiv, votes.vozderzh, totalPeople, waiting)
     
-    -- podskazka o knopkah
     local h = mon.getSize()
     mon.setCursorPos(2, h-2)
     mon.setTextColor(colors.gray)
-    mon.write("Knopki: ZA | PROTIV | VOZDERZH | STOP VOTE | EXIT")
+    mon.write("Knopki: ZA | PROTIV | VOZDERZH | STOP | EXIT")
 end
 
 -- osnovnaya programma
@@ -148,59 +178,40 @@ while true do
     local votedCount = 0
     local active = true
     
-    -- sbros flagov dlya oprosa knopok
-    lastZa = rs.getInput(zaSide)
-    lastProtiv = rs.getInput(protivSide)
-    lastVozderzh = rs.getInput(vozderzhSide)
-    lastStop = rs.getInput(stopVoteSide)
-    lastExit = rs.getInput(exitSide)
+    -- obnovit sostoyaniya knopok
+    lastZa = rs.getInput(sides.za)
+    lastProtiv = rs.getInput(sides.protiv)
+    lastVozderzh = rs.getInput(sides.vozderzh)
+    lastStop = rs.getInput(sides.stop)
+    lastExit = rs.getInput(sides.exit)
     
     while active and votedCount < totalPeople do
-        -- proverka knopki ZA
-        local pressed, cur = wasPressed(zaSide, lastZa)
+        local pressed, cur
+        
+        pressed, cur = wasPressed(sides.za, lastZa)
         lastZa = cur
-        if pressed then
-            votes.za = votes.za + 1
-            votedCount = votedCount + 1
-        end
+        if pressed then votes.za = votes.za + 1 votedCount = votedCount + 1 end
         
-        -- knopka PROTIV
-        pressed, cur = wasPressed(protivSide, lastProtiv)
+        pressed, cur = wasPressed(sides.protiv, lastProtiv)
         lastProtiv = cur
-        if pressed then
-            votes.protiv = votes.protiv + 1
-            votedCount = votedCount + 1
-        end
+        if pressed then votes.protiv = votes.protiv + 1 votedCount = votedCount + 1 end
         
-        -- knopka VOZDERZH
-        pressed, cur = wasPressed(vozderzhSide, lastVozderzh)
+        pressed, cur = wasPressed(sides.vozderzh, lastVozderzh)
         lastVozderzh = cur
-        if pressed then
-            votes.vozderzh = votes.vozderzh + 1
-            votedCount = votedCount + 1
-        end
+        if pressed then votes.vozderzh = votes.vozderzh + 1 votedCount = votedCount + 1 end
         
-        -- knopka DOSROCHNOGO OSTANOVA
-        pressed, cur = wasPressed(stopVoteSide, lastStop)
+        pressed, cur = wasPressed(sides.stop, lastStop)
         lastStop = cur
-        if pressed then
-            active = false
-            break
-        end
+        if pressed then active = false break end
         
-        -- knopka VYHODA IZ PROGRAMMY
-        pressed, cur = wasPressed(exitSide, lastExit)
+        pressed, cur = wasPressed(sides.exit, lastExit)
         lastExit = cur
-        if pressed then
-            print("Vykhod po knopke EXIT")
-            os.exit()
-        end
+        if pressed then print("EXIT knopka") os.exit() end
         
         showUI(meetingTopic, meetingNumber, question, participants, votes, votedCount, totalPeople)
         os.sleep(0.05)
     end
     
-    -- otobrazit rezultat
     mon.clear()
     mon.setCursorPos(2,5)
     mon.setTextColor(colors.white)
@@ -222,5 +233,4 @@ while true do
     print("Prodolzhit golosovaniya? (y/n):")
     if read() ~= "y" then break end
 end
-
 print("Programma zavershena")
