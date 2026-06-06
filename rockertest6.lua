@@ -129,7 +129,7 @@ while true do
     
     local data = getShipData()
     if not data then
-        print("Oshibka: net dannyh ot sublevel. Raketa ne v plot?)
+        print("Oshibka: net dannyh ot sublevel. Raketa ne v plot?")
         sleep(1)
         goto continue
     end
