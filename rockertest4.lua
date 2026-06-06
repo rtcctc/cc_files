@@ -22,7 +22,7 @@ local PID_ALT   = {Kp=1.2, Ki=0.01, Kd=0.3, int=0, last_err=0}
 -- ---------- FUNKTSII ----------
 function setEngine(side, value)
     value = math.floor(math.max(0, math.min(15, value)))
-    redstone.setOutput(side, value)
+    redstone.setAnalogueOutput(side, value)
 end
 
 function setAllEngines(L, R, F, B)
