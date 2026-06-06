@@ -1,26 +1,25 @@
 -- ==================================================
--- Автопилот баллистической ракеты
--- Управление 4 двигателями через redstone.setOutput
--- Требуется CC: Sable на борту
+-- Avtopilot ballisticheskoy rakety (CC: Sable API)
+-- Upravlenie 4 dvigatelyami cherez redstone.setOutput
 -- ==================================================
 
--- ---------- НАСТРОЙКИ ----------
-local CRUISE_ALT = 80          -- высота крейсерского полёта
-local CLIMB_PITCH = math.rad(30)   -- угол набора высоты
-local DIVE_PITCH = math.rad(-45)   -- угол пикирования
-local TURN_THRESHOLD = math.rad(5) -- порог завершения разворота
-local DIVE_DIST = 200          -- дистанция до цели для начала пикирования
-local IMPACT_DIST = 15         -- дистанция для отключения двигателей
+-- ---------- NASTROYKI ----------
+local CRUISE_ALT = 80
+local CLIMB_PITCH = math.rad(30)
+local DIVE_PITCH = math.rad(-45)
+local TURN_THRESHOLD = math.rad(5)
+local DIVE_DIST = 200
+local IMPACT_DIST = 15
 
 local BASE_THRUST = 8
 local MAX_CORR = 5
 
--- ПИД-коэффициенты
+-- PID koeffitsienty
 local PID_YAW   = {Kp=2.0, Ki=0.05, Kd=0.8, int=0, last_err=0}
 local PID_PITCH = {Kp=1.5, Ki=0.02, Kd=0.5, int=0, last_err=0}
 local PID_ALT   = {Kp=1.2, Ki=0.01, Kd=0.3, int=0, last_err=0}
 
--- ---------- ФУНКЦИИ ----------
+-- ---------- FUNKTSII ----------
 function setEngine(side, value)
     value = math.floor(math.max(0, math.min(15, value)))
     redstone.setOutput(side, value)
@@ -33,19 +32,24 @@ function setAllEngines(L, R, F, B)
     setEngine("back", B)
 end
 
+-- Poluchenie dannyh ot sublevel API
 function getShipData()
-    local ship = sable.getShipController()
-    if not ship then return nil end
-    -- Проверяем наличие методов (на случай отличий в API)
-    if not ship.getPosition or not ship.getYaw then return nil end
-    local pos = ship.getPosition()
-    local vel = ship.getVelocity()
+    if not sublevel.isInPlotGrid() then
+        return nil
+    end
+    local pose = sublevel.getLogicalPose()
+    local pos = pose.position
+    local vel = sublevel.getVelocity()
+    -- Poluchaem uglы (yaw, pitch, roll) iz kvaternionа
+    local orientation = pose.orientation
+    local angles = quaternion.toEuler(orientation)
+    
     return {
         x = pos.x, y = pos.y, z = pos.z,
         vx = vel.x, vy = vel.y, vz = vel.z,
-        yaw = ship.getYaw(),
-        pitch = ship.getPitch(),
-        roll = ship.getRoll()
+        yaw = angles.yaw,
+        pitch = angles.pitch,
+        roll = angles.roll
     }
 end
 
@@ -64,26 +68,22 @@ function normalizeAngle(angle)
     return angle
 end
 
--- ---------- ОСНОВНОЙ ЦИКЛ ----------
+-- ---------- OSNOVNOY CIKL ----------
 local target = {x = 1000, z = 0, y = 0}
 local state = "CLIMB"
 local lastTime = os.clock()
 
-print("Автопилот запущен. Цель: X=" .. target.x .. " Z=" .. target.z)
+print("Avtopilot zapushen. Tsel: X=" .. target.x .. " Z=" .. target.z)
 
 while true do
     local now = os.clock()
     local dt = now - lastTime
-    if dt < 0.01 then
-        sleep(0.01)
-        now = os.clock()
-        dt = now - lastTime
-    end
+    if dt < 0.01 then sleep(0.01) dt = os.clock() - lastTime end
     lastTime = now
 
     local data = getShipData()
     if not data then
-        print("Ошибка: нет данных от CC: Sable")
+        print("Oshibka: net dannyh ot CC: Sable. Raketa ne na sub-urovne?")
         sleep(1)
     else
         local x, y, z = data.x, data.y, data.z
@@ -102,31 +102,23 @@ while true do
         local yaw_err = normalizeAngle(des_yaw - cur_yaw)
         local pitch_err = des_pitch - cur_pitch
 
-        -- Фазовые переходы
-        if state == "CLIMB" then
-            if y >= CRUISE_ALT - 3 then
-                state = "TURN"
-                print(">>> Набор высоты завершён, разворот к цели")
-            end
-        elseif state == "TURN" then
-            if math.abs(yaw_err) < TURN_THRESHOLD then
-                state = "CRUISE"
-                print(">>> Разворот завершён, крейсерский полёт")
-            end
-        elseif state == "CRUISE" then
-            if fullDist < DIVE_DIST then
-                state = "DIVE"
-                print(">>> Переход в пикирование")
-            end
-        elseif state == "DIVE" then
-            if fullDist < IMPACT_DIST then
-                setAllEngines(0, 0, 0, 0)
-                print(">>> ПОПАДАНИЕ! Двигатели отключены.")
-                break
-            end
+        -- Perekluchenie faz
+        if state == "CLIMB" and y >= CRUISE_ALT - 3 then
+            state = "TURN"
+            print(">>> Nabor vysoty zavershen, razvorot k tseli")
+        elseif state == "TURN" and math.abs(yaw_err) < TURN_THRESHOLD then
+            state = "CRUISE"
+            print(">>> Razvorot zavershen, kreyserskiy polyot")
+        elseif state == "CRUISE" and fullDist < DIVE_DIST then
+            state = "DIVE"
+            print(">>> Perekhod v pikirovanie")
+        elseif state == "DIVE" and fullDist < IMPACT_DIST then
+            setAllEngines(0, 0, 0, 0)
+            print(">>> POPADANIE! Dvigateli otklyucheny.")
+            break
         end
 
-        -- Целевые углы в зависимости от фазы
+        -- Tselevye ugly v zavisimosti ot fazy
         local target_yaw, target_pitch
         if state == "CLIMB" then
             target_yaw = cur_yaw
@@ -162,9 +154,9 @@ while true do
         setAllEngines(L, R, F, B)
 
         if math.floor(now) % 2 == 0 then
-            print(string.format("[%s] Y:%.1f  Дист:%.0f  ОшYaw:%.1f°  ОшPitch:%.1f°",
+            print(string.format("[%s] Y:%.1f  Dist:%.0f  OshYaw:%.1f°  OshPitch:%.1f°",
                 state, y, fullDist, math.deg(yaw_err_cmd), math.deg(pitch_err_cmd)))
         end
-    end -- if data
+    end
     sleep(0.05)
 end
