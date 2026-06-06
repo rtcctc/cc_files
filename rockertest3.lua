@@ -34,22 +34,19 @@ end
 
 -- Poluchenie dannyh ot sublevel API
 function getShipData()
-    if not sublevel.isInPlotGrid() then
-        return nil
-    end
+    if not sublevel.isInPlotGrid() then return nil end
     local pose = sublevel.getLogicalPose()
     local pos = pose.position
     local vel = sublevel.getVelocity()
-    -- Poluchaem uglы (yaw, pitch, roll) iz kvaternionа
-    local orientation = pose.orientation
-    local angles = quaternion.toEuler(orientation)
+    
+    -- Poluchenie uglov iz kvaterniona
+    local orientation = pose.orientation -- Eto i est' nash kvaternion
+    local pitch, yaw, roll = orientation:toEuler()
     
     return {
         x = pos.x, y = pos.y, z = pos.z,
         vx = vel.x, vy = vel.y, vz = vel.z,
-        yaw = angles.yaw,
-        pitch = angles.pitch,
-        roll = angles.roll
+        yaw = yaw, pitch = pitch, roll = roll
     }
 end
 
